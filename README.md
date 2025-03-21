@@ -29,7 +29,7 @@ GRAPHARMA/
 ```
 
 ## Setup
-Make sure you have Python 3.9+ installed and set up a virtual environment:
+Make sure you have Python 3.13+ installed and set up a virtual environment:
 
 ```python
 python3 -m venv .venv
