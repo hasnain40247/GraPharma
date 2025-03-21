@@ -1,0 +1,9 @@
+matplotlib
+numpy
+networkx
+scikit-learn
+torch
+fair-esm
+pandas
+rdkit
+tqdm
