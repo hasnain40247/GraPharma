@@ -1,92 +1,108 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from grapharma_lstm import LSTM_IC50
+from networks.grapharma_lstm import LSTM_IC50
+from ic50Trainer import IC50Trainer
+import json
+if __name__=="__main__":
 
-# Load data
-fingerprints = np.load("./representations/bindingdb_processed_fingerprints.npy", allow_pickle=True)
-embeddings = np.load("./representations/bindingdb_processed_embeddings.npy", allow_pickle=True)
-ic50 = np.load("./representations/ic50.npy")
 
-# Convert to arrays
-fingerprints = np.array(fingerprints.tolist())
-embeddings = np.array(embeddings.tolist())
-ic50 = np.log1p(ic50).reshape(-1, 1).astype(np.float32)
 
-# Pad protein embeddings to match fingerprint size (2048)
-if embeddings.shape[1] < fingerprints.shape[1]:
-    pad_width = fingerprints.shape[1] - embeddings.shape[1]
-    embeddings = np.pad(embeddings, ((0, 0), (0, pad_width)), 'constant')
+    fingerprints = np.load("./representations/bindingdb_processed_fingerprints.npy", allow_pickle=True)
+    embeddings = np.load("./representations/bindingdb_processed_embeddings.npy", allow_pickle=True)
+    ic50 = np.load("./representations/ic50.npy")
 
-# Stack as 2-step sequences: (batch, seq_len=2, features)
-X = np.stack([fingerprints, embeddings], axis=1)
-y = ic50
 
-# Train-test split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    fingerprints = np.array(fingerprints.tolist())
+    embeddings = np.array(embeddings.tolist())
+    ic50 = np.log1p(ic50).reshape(-1, 1).astype(np.float32)
 
-# Convert to tensors
-X_train = torch.tensor(X_train, dtype=torch.float32)
-y_train = torch.tensor(y_train, dtype=torch.float32)
-X_test = torch.tensor(X_test, dtype=torch.float32)
-y_test = torch.tensor(y_test, dtype=torch.float32)
 
-train_dataset = torch.utils.data.TensorDataset(X_train, y_train)
-test_dataset = torch.utils.data.TensorDataset(X_test, y_test)
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=64, shuffle=False)
+    if embeddings.shape[1] < fingerprints.shape[1]:
+        pad_width = fingerprints.shape[1] - embeddings.shape[1]
+        embeddings = np.pad(embeddings, ((0, 0), (0, pad_width)), 'constant')
 
-# Model
-model = LSTM_IC50(input_dim=X.shape[2])
-criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    X = np.stack([fingerprints, embeddings], axis=1)
+    y = ic50
 
-# Training
-def train(model, loader, epochs):
-    for epoch in range(epochs):
-        model.train()
-        running_loss = 0
-        for xb, yb in loader:
-            optimizer.zero_grad()
-            preds = model(xb)
-            loss = criterion(preds, yb)
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
-        print(f"Epoch {epoch+1}, Loss: {running_loss / len(loader):.4f}")
 
-train(model, train_loader, epochs=50)
+    batch_size=64
+    trainer=IC50Trainer()
+    trainer.preprocess(X, y)
+    log_file = "./metrics/lstm_performance_log.csv"
+    headers = ['model_type', 'hidden_dim', 'num_layers', 'architecture', 'dropout', 'learning_rate', 'train_loss', 'val_loss', 'test_rmse']
 
-# Testing
-def test(model, loader):
-    model.eval()
-    preds, trues = [], []
-    with torch.no_grad():
-        for xb, yb in loader:
-            pred = model(xb)
-            preds.append(pred.numpy())
-            trues.append(yb.numpy())
-    preds = np.concatenate(preds).squeeze()
-    trues = np.concatenate(trues).squeeze()
-    rmse = np.sqrt(np.mean((preds - trues) ** 2))
-    print(f"\nTest RMSE (log IC50): {rmse:.4f}")
-    return preds, trues
+    trainer.init_log(log_file,headers)
 
-preds, trues = test(model, test_loader)
+    model_types = ['lstm', 'bilstm', 'gru']
+    architectures = [
+        [512, 128],
+        [1024, 512, 128],
+        [256, 64]
+    ]
+    dropouts = [0.1, 0.2]
+    lrs = [1e-3, 1e-4]
+    hidden_dims = [64, 128, 256]
+    num_layers_list = [1, 2]
+    epochs = 50
+    best_test_rmse = float('inf') 
+    best_config = None  
 
-print("Predictions on Test Data:\n")
-for i in range(10):
-    pred_log_ic50 = preds[i]
-    true_log_ic50 = trues[i]
-    pred_ic50 = np.expm1(pred_log_ic50)
-    true_ic50 = np.expm1(true_log_ic50)
 
-    print(f"Sample {i+1}")
-    print(f"Predicted log(IC50): {pred_log_ic50:.4f}")
-    print(f"True log(IC50):      {true_log_ic50:.4f}")
-    print(f"Predicted IC50:      {pred_ic50:.2f} nM")
-    print(f"True IC50:           {true_ic50:.2f} nM")
-    print("-" * 80)
 
+    for model_type in model_types:
+        for hidden_dim in hidden_dims:
+            for num_layers in num_layers_list:
+                for arch in architectures:
+                    for dropout in dropouts:
+                        for lr in lrs:
+                            print(f"\nModel: {model_type.upper()}, Hidden: {hidden_dim}, Layers: {num_layers}, Arch: {arch}, Dropout: {dropout}, LR: {lr}")
+                            model = LSTM_IC50(
+                                input_dim=X.shape[2],
+                                hidden_dim=hidden_dim,
+                                architecture=arch,
+                                dropout=dropout,
+                                num_layers=num_layers,
+                                model_type=model_type
+                            )
+                            optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+                            criterion = nn.MSELoss()
+
+                            trained_model, train_loss, val_loss = trainer.train(model,epochs, optimizer, criterion)
+                            test_rmse, _, _, _ = trainer.test(trained_model, verbose=False)
+
+                            print(f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Test RMSE: {test_rmse:.4f}")
+                            log_row = [
+                                model_type,
+                                hidden_dim,
+                                num_layers,
+                                str(arch),
+                                dropout,
+                                lr,
+                                round(train_loss, 4),
+                                round(val_loss, 4),
+                                round(test_rmse, 4)
+                            ]
+                            trainer.log_results(log_row)
+                            if test_rmse < best_test_rmse:
+                                best_test_rmse = test_rmse
+                                best_config = {
+                                    'lstm_type': model_type,
+                                    'hidden_dimensions': hidden_dim,
+                                    'architecture': str(arch),
+                                    "dropout":dropout,
+                                    'lr': lr,
+                                    'num_layers': num_layers,
+                                    'test_rmse':   round(float(test_rmse), 4) 
+  
+                                }
+                            
+                                torch.save(trained_model.state_dict(), "./best_models/best_lstm.pth")
+
+
+
+    if best_config:
+            with open("./best_configs/best_lstm_config.json", "w") as f:
+                json.dump(best_config, f, indent=4)
+
+    print(f"\nAll results logged to {log_file}")
