@@ -7,8 +7,8 @@ from networks.grapharma_nn import GraPharmaNN
 from ic50Trainer import IC50Trainer
 import json
 if __name__ == "__main__":
-    fingerprint_file = "./representations/bindingdb_processed_fingerprints.npy"
-    ic50_file = "./representations/ic50.npy"
+    fingerprint_file = "./rep_13k/bindingdb_processed_fingerprints.npy"
+    ic50_file = "./rep_13k/bindingdb_processed_ic50.npy"
     epochs = 50
     batch_size = 64
     trainer=IC50Trainer()
