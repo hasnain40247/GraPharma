@@ -28,7 +28,7 @@ class BindingDBProcessor(BaseProcessor):
         logger.logger.info(f"[\u2713] BindingDBProcessor Initialized")
      
 
-    def load_data(self, tsv_filename="BindingDB_All.tsv",max_rows=1000):
+    def load_data(self, tsv_filename="BindingDB_All.tsv",max_rows=20000):
         """
         Extracts and loads the BindingDB dataset from a ZIP archive, handling bad lines.
         """
