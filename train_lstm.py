@@ -4,13 +4,13 @@ import torch.nn as nn
 from networks.grapharma_lstm import LSTM_IC50
 from ic50Trainer import IC50Trainer
 import json
+import matplotlib.pyplot as plt
+
 if __name__=="__main__":
 
-
-
-    fingerprints = np.load("./representations/bindingdb_processed_fingerprints.npy", allow_pickle=True)
-    embeddings = np.load("./representations/bindingdb_processed_embeddings.npy", allow_pickle=True)
-    ic50 = np.load("./representations/ic50.npy")
+    fingerprints = np.load("./data/rep_13k/bindingdb_processed_fingerprints.npy", allow_pickle=True)
+    embeddings = np.load("./data/rep_13k/bindingdb_processed_embeddings.npy", allow_pickle=True)
+    ic50 = np.load("./data/rep_13k/bindingdb_processed_ic50.npy")
 
 
     fingerprints = np.array(fingerprints.tolist())
@@ -97,12 +97,30 @@ if __name__=="__main__":
   
                                 }
                             
-                                torch.save(trained_model.state_dict(), "./best_models/best_lstm.pth")
+                                torch.save(trained_model.state_dict(), "./best_models/best_lstm1.pth")
+                                np.save("./metrics/lstm_train_loss1.npy", train_loss)
+                                np.save("./metrics/lstm_val_loss1.npy", val_loss)
 
 
 
     if best_config:
-            with open("./best_configs/best_lstm_config.json", "w") as f:
-                json.dump(best_config, f, indent=4)
+        with open("./best_configs/best_lstm_config1.json", "w") as f:
+            json.dump(best_config, f, indent=4)
 
     print(f"\nAll results logged to {log_file}")
+
+    # Plot best model's training and validation loss
+    train_loss = np.load("./metrics/lstm_train_loss1.npy")
+    val_loss = np.load("./metrics/lstm_val_loss1.npy")
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(train_loss, label='Train Loss')
+    plt.plot(val_loss, label='Validation Loss')
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss (MSE)")
+    plt.title("Best LSTM Model: Training vs. Validation Loss")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig("./plots/best_lstm_training_curve.png", dpi=300)
+    plt.show()

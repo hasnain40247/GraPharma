@@ -6,9 +6,11 @@ import torch.nn as nn
 from networks.grapharma_nn import GraPharmaNN
 from ic50Trainer import IC50Trainer
 import json
+import matplotlib.pyplot as plt
+
 if __name__ == "__main__":
-    fingerprint_file = "./rep_13k/bindingdb_processed_fingerprints.npy"
-    ic50_file = "./rep_13k/bindingdb_processed_ic50.npy"
+    fingerprint_file = "./data/rep_13k/bindingdb_processed_fingerprints.npy"
+    ic50_file = "./data/rep_13k/bindingdb_processed_ic50.npy"
     epochs = 50
     batch_size = 64
     trainer=IC50Trainer()
@@ -21,7 +23,7 @@ if __name__ == "__main__":
     trainer.preprocess(X, y,scale=True)
     headers = ['architecture', 'dropout', 'learning_rate', 'train_loss', 'val_loss', 'test_rmse']
     
-    log_file = "./metrics/ffn_performance_log.csv"
+    log_file = "./metrics/ffn_performance_log1.csv"
     trainer.init_log(log_file,headers=headers)
     best_test_rmse = float('inf') 
     best_config = None 
@@ -67,12 +69,30 @@ if __name__ == "__main__":
 
                             }
                          
-                            torch.save(trained_model.state_dict(), "./best_models/best_ffn.pth")
+                            torch.save(trained_model.state_dict(), "./best_models/best_ffn1.pth")
+                            np.save("./metrics/ffn_train_loss1.npy", train_loss)
+                            np.save("./metrics/ffn_val_loss1.npy", val_loss)
 
 
 
     if best_config:
-            with open("./best_configs/best_ffn_config.json", "w") as f:
-                json.dump(best_config, f, indent=4)
+        with open("./best_configs/best_ffn_config1.json", "w") as f:
+            json.dump(best_config, f, indent=4)
 
     print(f"\nAll results logged to {log_file}")
+
+    # Plot best model's training and validation loss
+    train_loss = np.load("./metrics/ffn_train_loss1.npy")
+    val_loss = np.load("./metrics/ffn_val_loss1.npy")
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(train_loss, label='Train Loss')
+    plt.plot(val_loss, label='Validation Loss')
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss (MSE)")
+    plt.title("Best FFN Model: Training vs. Validation Loss")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig("./plots/best_ffn_training_curve.png", dpi=300)
+    plt.show()

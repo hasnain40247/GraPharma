@@ -1,0 +1,7 @@
+{
+    "gnn_type": "SAGE",
+    "hidden_channels": 64,
+    "lr": 0.01,
+    "num_layers": 4,
+    "test_rmse": 2.5669
+}
