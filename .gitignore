@@ -1,1 +1,4 @@
-data/BindingDB_All.tsv
+data_processor/data/BindingDB_All.tsv
+representations/
+rep_13k/
+

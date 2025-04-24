@@ -7,3 +7,4 @@ fair-esm
 pandas
 rdkit
 tqdm
+torch_geometric
